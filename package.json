@@ -1,0 +1,31 @@
+{
+  "name": "ai-translator-widget",
+  "version": "1.0.0",
+  "description": "轻量化AI翻译桌面插件",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "electron-store": "^8.1.0",
+    "node-global-key-listener": "^0.3.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.ai.translator.widget",
+    "productName": "AI翻译助手",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
