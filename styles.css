@@ -723,3 +723,15 @@ kbd {
 .translate-mode-content .btn-primary {
   margin-bottom: 10px;
 }
+
+
+/* 语音录制状态 */
+.btn-sm.recording {
+  background: rgba(247, 118, 142, 0.3) !important;
+  animation: pulse-recording 1s infinite;
+}
+
+@keyframes pulse-recording {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(247, 118, 142, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(247, 118, 142, 0); }
+}

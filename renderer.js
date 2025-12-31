@@ -9,6 +9,7 @@ let lastTranslatedText = '';
 let shouldReplace = false;
 let lastTranslatedSource = '';  // 记录上次翻译的原文，防止重复翻译
 let isTranslating = false;  // 防止并发翻译
+let isRecording = false;  // 语音录制状态
 
 const $ = id => document.getElementById(id);
 
@@ -24,7 +25,7 @@ const els = {
   inputText: $('input-text'), outputText: $('output-text'), btnTranslate: $('btn-translate'),
   btnCopy: $('btn-copy'), btnPaste: $('btn-paste'),
   chatMessages: $('chat-messages'), chatInput: $('chat-input'),
-  btnChatImage: $('btn-chat-image'), btnSend: $('btn-send'), btnNewChat: $('btn-new-chat'),
+  btnChatImage: $('btn-chat-image'), btnChatVoice: $('btn-chat-voice'), btnSend: $('btn-send'), btnNewChat: $('btn-new-chat'),
   chatHistoryDropdown: $('chat-history-dropdown'),
   apiUrl: $('api-url'), apiKey: $('api-key'), modelName: $('model-name'),
   btnTest: $('btn-test'), testResult: $('test-result'), btnSave: $('btn-save'),
@@ -126,6 +127,7 @@ function bindEvents() {
   els.fileInput.onchange = handleImage;
   els.btnNewChat.onclick = newChat;
   els.btnNewChat.oncontextmenu = showChatHistory;
+  els.btnChatVoice.onclick = toggleVoiceInput;
   
   // 点击其他地方关闭历史下拉菜单
   document.addEventListener('click', (e) => {
@@ -536,6 +538,48 @@ function handleImage(e) {
   reader.readAsDataURL(file);
   e.target.value = '';
 }
+
+// 语音输入功能
+function toggleVoiceInput() {
+  if (isRecording) {
+    stopVoiceInput();
+  } else {
+    startVoiceInput();
+  }
+}
+
+function startVoiceInput() {
+  isRecording = true;
+  els.btnChatVoice.classList.add('recording');
+  els.btnChatVoice.style.color = '#f7768e';
+  showToast('请说话...');
+  ipcRenderer.send('start-voice-record');
+}
+
+function stopVoiceInput() {
+  isRecording = false;
+  els.btnChatVoice.classList.remove('recording');
+  els.btnChatVoice.style.color = '';
+  ipcRenderer.send('stop-voice-record');
+  showToast('已停止');
+}
+
+// 识别结果
+ipcRenderer.on('voice-final', (_, text) => {
+  if (text) {
+    els.chatInput.value += text;
+  }
+});
+
+ipcRenderer.on('voice-interim', (_, text) => {
+  // 暂不处理临时结果
+});
+
+ipcRenderer.on('voice-end', () => {
+  if (isRecording) {
+    stopVoiceInput();
+  }
+});
 
 async function testConnection(silent) {
   const url = els.apiUrl.value || config.apiUrl;

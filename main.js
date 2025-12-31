@@ -33,6 +33,15 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
   
+  // 处理媒体权限请求（麦克风）
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media') {
+      callback(true);  // 允许麦克风权限
+    } else {
+      callback(false);
+    }
+  });
+  
   // 恢复窗口位置，确保不超出屏幕边界
   const bounds = store.get('windowBounds');
   if (bounds) {
@@ -313,5 +322,66 @@ ipcMain.on('stop-monitor', () => {
   if (clipboardInterval) {
     clearInterval(clipboardInterval);
     clipboardInterval = null;
+  }
+});
+
+// 语音识别 - 使用 Windows SAPI
+let voiceProcess = null;
+let voiceScriptPath = null;
+
+ipcMain.on('start-voice-record', () => {
+  // 创建临时脚本 - 用 UTF-8 BOM 编码
+  voiceScriptPath = path.join(os.tmpdir(), `voice_${Date.now()}.ps1`);
+  const script = `
+chcp 65001 > $null
+Add-Type -AssemblyName System.Speech
+$r = New-Object System.Speech.Recognition.SpeechRecognitionEngine
+$r.SetInputToDefaultAudioDevice()
+$g = New-Object System.Speech.Recognition.DictationGrammar
+$r.LoadGrammar($g)
+
+while($true) {
+  $result = $r.Recognize([TimeSpan]::FromSeconds(30))
+  if($result -and $result.Text) {
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($result.Text)
+    $base64 = [Convert]::ToBase64String($bytes)
+    Write-Output $base64
+  }
+}
+`;
+  
+  fs.writeFileSync(voiceScriptPath, script, 'utf8');
+  
+  voiceProcess = spawn('powershell', [
+    '-NoProfile', 
+    '-ExecutionPolicy', 'Bypass',
+    '-File', voiceScriptPath
+  ], { windowsHide: true });
+  
+  voiceProcess.stdout.on('data', (data) => {
+    const base64 = data.toString().trim();
+    if (base64) {
+      try {
+        const text = Buffer.from(base64, 'base64').toString('utf8');
+        if (text) {
+          mainWindow.webContents.send('voice-final', text);
+        }
+      } catch {}
+    }
+  });
+  
+  voiceProcess.on('close', () => {
+    mainWindow.webContents.send('voice-end');
+    voiceProcess = null;
+    if (voiceScriptPath) {
+      try { fs.unlinkSync(voiceScriptPath); } catch {}
+    }
+  });
+});
+
+ipcMain.on('stop-voice-record', () => {
+  if (voiceProcess) {
+    voiceProcess.kill();
+    voiceProcess = null;
   }
 });
